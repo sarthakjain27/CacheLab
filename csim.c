@@ -39,6 +39,8 @@ int main(int argc, char **argv)
 {
 	cache_parameters *input_param=malloc(sizeof(cache_parameters));
 	char *file=(char*)(malloc(sizeof(char)*50));
+	if(input_param==NULL || file==NULL)
+		return 0;
 	int i;
 	for(i=1;i<argc;i++)
 	{	
@@ -83,7 +85,7 @@ int main(int argc, char **argv)
 	int size;
 	long total_hits=0,total_miss=0,total_evict=0;
 	int hit_flag=0,evict_flag=0;
-	int empty_space_flag=0,empty_block_pos=-1;
+	int empty_block_pos=-1;
 	int lru=0,evict_block_pos=0;
 	FILE* ptr=fopen(file,"r");
 	
@@ -140,6 +142,7 @@ int main(int argc, char **argv)
 					set_ptr.all_lines[evict_block_pos].valid_flag=1;
 				}
 			}
+			printf("OP: %c  Address: %lld  Size: %d  ",instruct,addr,size);
 			if(hit_flag==1)
 				printf("HIT \n");
 			else if(evict_flag==1)
@@ -151,6 +154,7 @@ int main(int argc, char **argv)
 		}	
 	}
 	fclose(ptr);
-	printSumamry(total_hits,total_miss,total_evict);
+	printf("Hits=%lu Miss=%lu Evict=%lu \n",total_hits,total_miss,total_evict);
+	//printSumamry(total_hits,total_miss,total_evict);
 	return 0;
 }
