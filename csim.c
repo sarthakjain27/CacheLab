@@ -24,6 +24,7 @@ typedef struct{
 typedef struct{
 	address tag_val;
 	int valid_flag;
+	int dirty_bit;
 	int lru_time_value;
 }each_line;
 
@@ -83,7 +84,7 @@ int main(int argc, char **argv)
 	char instruct;
 	address addr;
 	int size;
-	long total_hits=0,total_miss=0,total_evict=0;
+	long total_hits=0,total_miss=0,total_evict=0,total_dirty_evict=0,total_store_hits=0;
 	int hit_flag=0,evict_flag=0;
 	int empty_block_pos=-1;
 	int lru=0,evict_block_pos=0;
@@ -109,6 +110,11 @@ int main(int argc, char **argv)
 				{
 					if(set_ptr.all_lines[i].tag_val==tag_val_file)
 					{
+						if(instruct=='S' && set_ptr.all_lines[i].dirty_bit==0)
+						{
+							set_ptr.all_lines[i].dirty_bit=1;
+							total_store_hits++;
+						}
 						total_hits+=1;
 						hit_flag=1;
 						set_ptr.all_lines[i].lru_time_value=lru;
@@ -131,10 +137,26 @@ int main(int argc, char **argv)
 				{
 					set_ptr.all_lines[empty_block_pos].tag_val=tag_val_file;
 					set_ptr.all_lines[empty_block_pos].lru_time_value=lru++;
-					set_ptr.all_lines[empty_block_pos].valid_flag=1;	
+					set_ptr.all_lines[empty_block_pos].valid_flag=1;
+					if(instruct=='S')
+					{
+						set_ptr.all_lines[empty_block_pos].dirty_bit=1;
+						total_store_hits++;
+					}
+					else set_ptr.all_lines[empty_block_pos].dirty_bit=0;	
 				}
 				else if(empty_block_pos==-1)
 				{
+					if(set_ptr.all_lines[evict_block_pos].dirty_bit==1){
+						total_dirty_evict++;
+						total_store_hits--;
+					}
+					if(instruct=='S')
+					{
+						total_store_hits++;
+						set_ptr.all_lines[evict_block_pos].dirty_bit=1;
+					}
+					else set_ptr.all_lines[evict_block_pos].dirty_bit=0;
 					total_evict++;
 					evict_flag=1;
 					set_ptr.all_lines[evict_block_pos].tag_val=tag_val_file;
@@ -142,7 +164,7 @@ int main(int argc, char **argv)
 					set_ptr.all_lines[evict_block_pos].valid_flag=1;
 				}
 			}
-			printf("OP: %c  Address: %lld  Size: %d  ",instruct,addr,size);
+			printf("OP: %c  Address: %llx  Size: %d  ",instruct,addr,size);
 			if(hit_flag==1)
 				printf("HIT \n");
 			else if(evict_flag==1)
@@ -154,7 +176,8 @@ int main(int argc, char **argv)
 		}	
 	}
 	fclose(ptr);
-	printf("Hits=%lu Miss=%lu Evict=%lu \n",total_hits,total_miss,total_evict);
-	//printSumamry(total_hits,total_miss,total_evict);
+	
+	//printf("Hits=%lu Miss=%lu Evict=%lu Total_dirty_bytes_in_cache=%lu Total Dirty bytes Evict=%lu \n",total_hits,total_miss,total_evict,(total_store_hits*cache_dimension->B),(total_dirty_evict*cache_dimension->B));
+	printSummary(total_hits,total_miss,total_evict,(total_store_hits*cache_dimension->B),(total_dirty_evict*cache_dimension->B));
 	return 0;
 }
