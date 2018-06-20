@@ -12,8 +12,10 @@ typedef unsigned long long int address;
 
 typedef struct{
 	int s;
+	int S;
 	int E;
 	int b;
+	int B;
 }cache_parameters;
 
 typedef struct{
@@ -48,6 +50,7 @@ int main(int argc, char **argv)
 		if(strcmp(argv[i],"-s")==0)
 		{
 			input_param->s=atoi(argv[i+1]);
+			input_param->S=1<<(input_param->s);
 			i++;
 		}
 		else if(strcmp(argv[i],"-E")==0)
@@ -58,6 +61,7 @@ int main(int argc, char **argv)
 		else if(strcmp(argv[i],"-b")==0)
 		{
 			input_param->b=atoi(argv[i+1]);
+			input_param->B=1<<(input_param->b);
 			i++;
 		}
 		else if(strcmp(argv[i],"-t")==0)
@@ -71,14 +75,10 @@ int main(int argc, char **argv)
 		printf("No trace file provided \n");
 		return 0;
 	}
-	printf("s=%d  E=%d  b=%d  filename=%s \n",input_param->s,input_param->E,input_param->b,file);
-	cache_size *cache_dimension=(cache_size*)(malloc(sizeof(cache_size)));
-	cache_dimension->S=1<<input_param->s;
-	cache_dimension->B=1<<input_param->b;
-	printf("S=%d  B=%d \n",cache_dimension->S,cache_dimension->B);
+	printf("s=%d  S=%d  E=%d  b=%d  B=%d  filename=%s \n",input_param->s,input_param->S,input_param->E,input_param->b,input_param->B,file);
 	cache C_new;
-	C_new.all_sets=malloc(sizeof(each_set)*cache_dimension->S);
-	for(i=0;i<cache_dimension->S;i++)
+	C_new.all_sets=malloc(sizeof(each_set)*input_param->S);
+	for(i=0;i<input_param->S;i++)
 		C_new.all_sets[i].all_lines=malloc(sizeof(each_line)*input_param->E);
 	
 	char instruct;
@@ -176,8 +176,11 @@ int main(int argc, char **argv)
 		}	
 	}
 	fclose(ptr);
-	
-	//printf("Hits=%lu Miss=%lu Evict=%lu Total_dirty_bytes_in_cache=%lu Total Dirty bytes Evict=%lu \n",total_hits,total_miss,total_evict,(total_store_hits*cache_dimension->B),(total_dirty_evict*cache_dimension->B));
-	printSummary(total_hits,total_miss,total_evict,(total_store_hits*cache_dimension->B),(total_dirty_evict*cache_dimension->B));
+	printSummary(total_hits,total_miss,total_evict,(total_store_hits*input_param->B),(total_dirty_evict*input_param->B));	
+	//for(i=0;i<input_param->S;i++)
+	//	free(C_new.all_sets[i].all_lines);
+	//free(C_new.all_sets);
+	//free(file);
+	//free(input_param);
 	return 0;
 }
