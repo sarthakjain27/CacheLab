@@ -209,7 +209,7 @@ int main(int argc, char **argv)
 	printSummary(total_hits,total_miss,total_evict,(total_store_hits*input_param->B),(total_dirty_evict*input_param->B));	
 	//for(i=0;i<input_param->S;i++)
 	//	free(C_new.all_sets[i].all_lines);
-	//free(C_new.all_sets);
+	free(C_new);
 	//free(file);
 	//free(input_param);
 	return 0;
