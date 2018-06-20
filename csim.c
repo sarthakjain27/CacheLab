@@ -16,6 +16,7 @@
 #include<math.h>
 #include<strings.h>
 #include<limits.h>
+#include<string.h>
 
 typedef unsigned long long int address;
 
