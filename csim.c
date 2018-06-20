@@ -1,3 +1,12 @@
+//Name: Sarthak Jain
+//Andrew ID: sarthak3
+
+//This is the C file to immitate the Cache memories. Concepts like Hit, Miss, and Evict are being counted. A list of instructions along with address are provided to
+//cache from the trace file provided to us. Additionally, the instructions are of Load(for read) and Store(for write). We are using write-back strategy for write
+//operation deferring to write into memory until a dirty block is evicted from cache. For eviction, we are using LRU policy. To immitate this, each line has a 
+//timer variable associated which gets updated whenever a read/write happens to that line. Whenever we need to evice a line from a set, we are looking for a line
+//with least timer value. This eviction happens only if there are no empty lines present in a set.
+
 #include "cachelab.h"
 #include<stdlib.h>
 #include<unistd.h>
@@ -19,11 +28,6 @@ typedef struct{
 }cache_parameters;
 
 typedef struct{
-	int S;
-	int B;
-}cache_size;
-
-typedef struct{
 	address tag_val;
 	int valid_flag;
 	int dirty_bit;
@@ -41,10 +45,13 @@ typedef struct{
 int main(int argc, char **argv)
 {
 	cache_parameters *input_param=malloc(sizeof(cache_parameters));
-	char *file=(char*)(malloc(sizeof(char)*50));
+	char *file=(char*)(malloc(sizeof(char)*50));//Largest file name with the path was about ~20 characters
+	//check if malloc din't assign memory
 	if(input_param==NULL || file==NULL)
 		return 0;
 	int i;
+	int verbose_flag=0;
+	//Assign values to our cache parameters via command line
 	for(i=1;i<argc;i++)
 	{	
 		if(strcmp(argv[i],"-s")==0)
@@ -69,17 +76,20 @@ int main(int argc, char **argv)
 			file=argv[i+1];
 			i++;
 		}
+		else if(strcmp(argv[i],"-v")==0)
+			verbose_flag=1;
 	}
+	//check if there is no trace file been provided in command line input
 	if(file==NULL)
 	{
 		printf("No trace file provided \n");
 		return 0;
 	}
-	printf("s=%d  S=%d  E=%d  b=%d  B=%d  filename=%s \n",input_param->s,input_param->S,input_param->E,input_param->b,input_param->B,file);
-	cache C_new;
-	C_new.all_sets=malloc(sizeof(each_set)*input_param->S);
+	//Initialize our cache structure using the S,E and B parameters
+	cache *C_new=(cache *)(malloc(sizeof(cache)));
+	C_new->all_sets=malloc(sizeof(each_set)*input_param->S);
 	for(i=0;i<input_param->S;i++)
-		C_new.all_sets[i].all_lines=malloc(sizeof(each_line)*input_param->E);
+		C_new->all_sets[i].all_lines=malloc(sizeof(each_line)*input_param->E);
 	
 	char instruct;
 	address addr;
@@ -95,6 +105,22 @@ int main(int argc, char **argv)
 		printf("Unable to open the trace file \n");
 		return 0;
 	}
+
+	//Begin reading lines from the file using fscanf. Fscanf takes pointers to the variables as input and return 0 on reaching EOF.
+	//To immitate a cache memory there are certain steps to be kept in mind.
+	//
+	//1. From the address, extract the TAG bits, SET bits and OFFSET bits.
+	//2. Our addresses are 64 bit, so tag bit count are 64-(sum of SET and OFFSET bit counts)
+	//3. Based on the SET bits value, get the SET number whose Lines we need to search
+	//4. Iterate over all the lines in the SET and look for any empty lines.
+	//5. If we have some empty lines present then L and S can be done on that empty line
+	//6. If not then either it should be a HIT or an EVICT.
+	//7. If it's an HIT, update the timer value of the line accordingly since it is accessed at a new time now.
+	//8. If it's an EVICT, we find a victim based on our LRU policy. We make use of timer values of each line to find the least timer value, which should signify
+	//that it wasn't accessed as frequently as compared to other lines.
+	//9. Then we modify the TAG, lru and valid bit of the victim block with the address we are presently reading from file.
+	//10. In all these, we maintain 5 counters for HIT,MISS,EVICT,DIRTY_IN_CACHE & DIRTY_EVICT
+	
 	while(fscanf(ptr,"%c %llx %d",&instruct,&addr,&size)>0)
 	{
 		if(instruct=='L' || instruct=='S')
@@ -103,14 +129,14 @@ int main(int argc, char **argv)
 			address tag_val_file=addr>>(input_param->s + input_param->b);
 			int numb_tag_bits_file=64-(input_param->s + input_param->b);
 			int set_val=(addr<<numb_tag_bits_file)>>(numb_tag_bits_file+input_param->b);
-			each_set set_ptr=C_new.all_sets[set_val];
-			for(i=0;i<input_param->E;i++)
+			each_set set_ptr=C_new->all_sets[set_val];//checking which SET number does the address can lie in
+			for(i=0;i<input_param->E;i++)//scanning over all lines of that SET
 			{
-				if(set_ptr.all_lines[i].valid_flag==1)
+				if(set_ptr.all_lines[i].valid_flag==1)//If a line is currently occupied
 				{
-					if(set_ptr.all_lines[i].tag_val==tag_val_file)
+					if(set_ptr.all_lines[i].tag_val==tag_val_file)//if occupied check for a HIT
 					{
-						if(instruct=='S' && set_ptr.all_lines[i].dirty_bit==0)
+						if(instruct=='S' && set_ptr.all_lines[i].dirty_bit==0)//we don't modify dirty_count if it was same instruction repeated
 						{
 							set_ptr.all_lines[i].dirty_bit=1;
 							total_store_hits++;
@@ -120,20 +146,20 @@ int main(int argc, char **argv)
 						set_ptr.all_lines[i].lru_time_value=lru;
 						lru++;
 					}
-					else if(set_ptr.all_lines[i].lru_time_value<lru_block_val)
+					else if(set_ptr.all_lines[i].lru_time_value<lru_block_val)//If not a HIT, check for possible victim for EVICTION
 					{
 						lru_block_val=set_ptr.all_lines[i].lru_time_value;
 						evict_block_pos=i;
 						
 					}
 				}
-				else if(empty_block_pos==-1)
+				else if(empty_block_pos==-1)//Check if a SET has an empty LINE, so that rather than EVICT we would assign in this empty LINE
 					empty_block_pos=i;
 			}
-			if(hit_flag!=1)
+			if(hit_flag!=1)//if it wasn't a HIT, then case for EMPTY LINE or EVICT
 			{
 				total_miss++;
-				if(empty_block_pos!=-1)
+				if(empty_block_pos!=-1)//Check if there was an empty LINE in the SET first before eviction
 				{
 					set_ptr.all_lines[empty_block_pos].tag_val=tag_val_file;
 					set_ptr.all_lines[empty_block_pos].lru_time_value=lru++;
@@ -145,7 +171,7 @@ int main(int argc, char **argv)
 					}
 					else set_ptr.all_lines[empty_block_pos].dirty_bit=0;	
 				}
-				else if(empty_block_pos==-1)
+				else if(empty_block_pos==-1)//If all LINES are filled then EVICT victim
 				{
 					if(set_ptr.all_lines[evict_block_pos].dirty_bit==1){
 						total_dirty_evict++;
@@ -164,12 +190,15 @@ int main(int argc, char **argv)
 					set_ptr.all_lines[evict_block_pos].valid_flag=1;
 				}
 			}
-			printf("OP: %c  Address: %llx  Size: %d  ",instruct,addr,size);
-			if(hit_flag==1)
-				printf("HIT \n");
-			else if(evict_flag==1)
-				printf("EVICT \n");
-			else printf("MISS \n");
+			if(verbose_flag==1)
+			{
+				printf("OP: %c  Address: %llx  Size: %d  ",instruct,addr,size);
+				if(hit_flag==1)
+					printf("HIT \n");
+				else if(evict_flag==1)
+					printf("EVICT \n");
+				else printf("MISS \n");
+			}
 			empty_block_pos=-1;
 			hit_flag=0;
 			evict_flag=0;
