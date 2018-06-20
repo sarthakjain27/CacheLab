@@ -94,7 +94,8 @@ int main(int argc, char **argv)
 	char instruct;
 	address addr;
 	int size;
-	long total_hits=0,total_miss=0,total_evict=0,total_dirty_evict=0,total_store_hits=0;
+	long total_hits=0,total_miss=0,total_evict=0,total_dirty_evict=0,total_store_hits=0;//assuming all store hits are for total_dirty_bytes_in_cache
+	//if any dirty line is evicted, we decrement total_store_hits and increment total_dirty_evict
 	int hit_flag=0,evict_flag=0;
 	int empty_block_pos=-1;
 	int lru=0,evict_block_pos=0;
@@ -136,7 +137,7 @@ int main(int argc, char **argv)
 				{
 					if(set_ptr.all_lines[i].tag_val==tag_val_file)//if occupied check for a HIT
 					{
-						if(instruct=='S' && set_ptr.all_lines[i].dirty_bit==0)//we don't modify dirty_count if it was same instruction repeated
+						if(instruct=='S' && set_ptr.all_lines[i].dirty_bit==0)//we don't increment total_store_hits if it is a same instruction repeated
 						{
 							set_ptr.all_lines[i].dirty_bit=1;
 							total_store_hits++;
@@ -164,7 +165,7 @@ int main(int argc, char **argv)
 					set_ptr.all_lines[empty_block_pos].tag_val=tag_val_file;
 					set_ptr.all_lines[empty_block_pos].lru_time_value=lru++;
 					set_ptr.all_lines[empty_block_pos].valid_flag=1;
-					if(instruct=='S')
+					if(instruct=='S')//If it is a store(write), then dirty bit of that LINE is set to 1 and dirty_count++
 					{
 						set_ptr.all_lines[empty_block_pos].dirty_bit=1;
 						total_store_hits++;
@@ -172,12 +173,12 @@ int main(int argc, char **argv)
 					else set_ptr.all_lines[empty_block_pos].dirty_bit=0;	
 				}
 				else if(empty_block_pos==-1)//If all LINES are filled then EVICT victim
-				{
+				{//if victim line has dirty bit set to 1 then need to decrement dirty bit count in cache by 1 and dirty_evict++
 					if(set_ptr.all_lines[evict_block_pos].dirty_bit==1){
 						total_dirty_evict++;
 						total_store_hits--;
 					}
-					if(instruct=='S')
+					if(instruct=='S')//if new instruction is S then dirty bit of new line is set to 1 and dirty count++
 					{
 						total_store_hits++;
 						set_ptr.all_lines[evict_block_pos].dirty_bit=1;
@@ -190,7 +191,7 @@ int main(int argc, char **argv)
 					set_ptr.all_lines[evict_block_pos].valid_flag=1;
 				}
 			}
-			if(verbose_flag==1)
+			if(verbose_flag==1)//only display each instruction's outcome if verbose flag was set by giving -v in command line input
 			{
 				printf("OP: %c  Address: %llx  Size: %d  ",instruct,addr,size);
 				if(hit_flag==1)
