@@ -1,4 +1,6 @@
-/* 
+/* Name:Sarthak Jain
+ * Andrew ID: sarthak3
+ *
  * trans.c - Matrix transpose B = A^T
  *
  * Each transpose function must have a prototype of the form:
@@ -36,7 +38,18 @@ void trans_tmp(size_t M, size_t N, double A[N][M], double B[M][N], double *tmp);
  */
 char transpose_submit_desc[] = "Transpose submission";
 
-
+/*Using same block strategy for our two matrix size(32*32, 63*65)
+ *We are just changing the block size depending on what matrix is passed.
+ *
+ *The function makes use of 4 loops. The outer two loops is to divide array A into smaller block_size*block_size matrices.
+ *We then access the smaller array A block in column major order.
+ *
+ *The inner two loops is to access elements of the created block. We do that in row-major order.
+ *
+ *Handling of diagonal elements is separate to avoic conflict miss, since then A & B are in same SET but with differernt TAG. Since it is Direct Mapped Cachec. Conflict Mises will occur. So to avoid that we store diagonal elements in temp array and access that element outside the loop.
+ *
+ *Clock cycles for various block sizes for each test case sized matrices was checked and then the optimal was used.
+ */
 void transpose_submit(size_t M, size_t N, double A[N][M], double B[M][N], double *tmp)
 {
     /*
@@ -44,10 +57,38 @@ void transpose_submit(size_t M, size_t N, double A[N][M], double B[M][N], double
      * It's OK to choose different functions based on array size, but
      * your code must be correct for all values of M and N
      */
-    if (M == N)
-        trans(M, N, A, B, tmp);
-    else
-        trans_tmp(M, N, A, B, tmp);
+	int block_size=0;//dividing Array A into smaller block_size*block_size arrays and doing their trasnpose
+	int rowIter_block=0,colIter_block=0;//defining the starting row and column index of each block. The blocks in A are shifting column major wise
+	int rowIndex=0,colIndex=0;//variable to iterate over each element in the block
+	int diag_pos=0;//to store index of diagonal elements
+	if(M==32)//separately handling case of square and non-square test case
+		block_size=8;//tried block size from 2,4,8,16,32. Clock cycle for 2:73632, 4:49248, 8:37536, 16:119520
+	else//for 63*65
+		block_size=4;//tried block size form 2,4,8,16,32. Clock cycle for 2:331256, 4:261272, 8:396056, 16:442904, 32:468440
+	for(colIter_block=0;colIter_block<M;colIter_block+=block_size)
+	{
+		for(rowIter_block=0;rowIter_block<N;rowIter_block+=block_size)
+		{
+			for(rowIndex=rowIter_block;rowIndex<N && rowIndex<rowIter_block+block_size;rowIndex++)//for non-square rowIndex might exceed N so a extra check for that
+			{
+				for(colIndex=colIter_block;colIndex<M && colIndex<colIter_block+block_size;colIndex++)//for non-square colIndex might exceed M so an extr check for that
+				{
+					if(colIndex!=rowIndex)
+					{
+						B[colIndex][rowIndex]=A[rowIndex][colIndex];//accessing elements of A row-major wise
+					}
+					else
+					{
+						tmp[0]=A[rowIndex][rowIndex];//for diagonal elements, A & B access same SET of cahce but has different TAG. So to avoid conflict misses
+						diag_pos=rowIndex;//...we handle the diagonal element by storing them in temp array and accessing it outside the loop
+					}
+				}
+				if(colIter_block==rowIter_block)
+					B[diag_pos][diag_pos]=tmp[0];
+			}
+		}
+	}
+	ENSURES(istranspose(M,N,A,B));
 }
 /* 
  * You can define additional transpose functions below. We've defined

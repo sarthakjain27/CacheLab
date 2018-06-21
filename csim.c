@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 	for(i=0;i<input_param->S;i++)
 		free(C_new->all_sets[i].all_lines);
 	free(C_new);
-	//free(file);
+	//free(file); //throwing segmentation fault somehow. Not sure why
 	free(input_param);
 	return 0;
 }
