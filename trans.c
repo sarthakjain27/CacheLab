@@ -79,12 +79,12 @@ void transpose_submit(size_t M, size_t N, double A[N][M], double B[M][N], double
 					}
 					else
 					{
-						tmp[0]=A[rowIndex][rowIndex];//for diagonal elements, A & B access same SET of cahce but has different TAG. So to avoid conflict misses
+						tmp[255]=A[rowIndex][rowIndex];//for diagonal elements, A & B access same SET of cahce but has different TAG. So to avoid conflict misses
 						diag_pos=rowIndex;//...we handle the diagonal element by storing them in temp array and accessing it outside the loop
 					}
 				}
 				if(colIter_block==rowIter_block)
-					B[diag_pos][diag_pos]=tmp[0];
+					B[diag_pos][diag_pos]=tmp[255];
 			}
 		}
 	}
